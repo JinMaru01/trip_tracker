@@ -1,69 +1,52 @@
-"use client"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { ExpenseTracker } from "@/components/expense-tracker"
 
-import { useState } from "react"
-import { ExpenseTable } from "@/components/expense-table"
-import { ExpenseForm } from "@/components/expense-form"
-import { SettlementSummary } from "@/components/settlement-summary"
+export default async function Home() {
+  const supabase = await createClient()
 
-export default function Home() {
-  const [expenses, setExpenses] = useState([
-    {
-      id: 1,
-      amount: 45,
-      paidBy: "Darachin",
-      category: "Hotel Booking (50%)",
-      shares: { Sovann: false, Visai: false, Darachin: true, Davann: false, Yongyi: false },
-    },
-    {
-      id: 2,
-      amount: 50,
-      paidBy: "Visai",
-      category: "Bus Booking (SR-PP)",
-      shares: { Sovann: true, Visai: true, Darachin: true, Davann: false, Yongyi: false },
-    },
-  ])
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
 
-  const members = ["Sovann", "Visai", "Darachin", "Davann", "Yongyi"]
-
-  const handleAddExpense = (newExpense: any) => {
-    setExpenses([...expenses, { ...newExpense, id: Date.now() }])
+  if (userError || !user) {
+    redirect("/auth/login")
   }
 
-  const handleDeleteExpense = (id: number) => {
-    setExpenses(expenses.filter((e) => e.id !== id))
-  }
+  const { data: trips } = await supabase
+    .from("trips")
+    .select("id, name, description")
+    .eq("created_by", user.id)
+    .limit(1)
 
-  const handleUpdateExpense = (id: number, updates: any) => {
-    setExpenses(expenses.map((e) => (e.id === id ? { ...e, ...updates } : e)))
+  let tripId = trips?.[0]?.id
+
+  if (!tripId) {
+    const { data: newTrip } = await supabase
+      .from("trips")
+      .insert({
+        name: "My Trip",
+        description: "Shared expense tracker",
+        created_by: user.id,
+      })
+      .select("id")
+      .single()
+
+    tripId = newTrip?.id
   }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-background via-card to-background p-6">
-      <div className="mx-auto max-w-7xl space-y-8">
+      <div className="mx-auto max-w-7xl">
         {/* Header */}
-        <div className="space-y-2">
+        <div className="space-y-2 mb-8">
           <h1 className="text-4xl font-bold text-foreground">Trip Expense Tracker</h1>
           <p className="text-muted-foreground">Keep track of shared expenses and split costs fairly</p>
         </div>
 
-        {/* Main Layout */}
-        <div className="grid gap-8 lg:grid-cols-3">
-          {/* Left Column - Form and Table */}
-          <div className="lg:col-span-2 space-y-6">
-            <ExpenseForm members={members} onAddExpense={handleAddExpense} />
-            <ExpenseTable
-              expenses={expenses}
-              members={members}
-              onDeleteExpense={handleDeleteExpense}
-              onUpdateExpense={handleUpdateExpense}
-            />
-          </div>
-
-          {/* Right Column - Summary */}
-          <div>
-            <SettlementSummary expenses={expenses} members={members} />
-          </div>
-        </div>
+        {/* Expense Tracker Component */}
+        {tripId && <ExpenseTracker tripId={tripId} userId={user.id} />}
       </div>
     </main>
   )
