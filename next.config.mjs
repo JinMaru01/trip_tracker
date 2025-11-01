@@ -1,14 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
+  output: 'export', // ensures static build
+  images: { unoptimized: true },
+  experimental: {
+    esmExternals: false,
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  images: {
-    unoptimized: true,
-  },
-}
+  // Force all routes to be static (use with caution)
+  dynamic: 'force-static',
+};
 
-export default nextConfig
+export default nextConfig;
